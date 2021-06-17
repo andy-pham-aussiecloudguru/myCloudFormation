@@ -27,6 +27,10 @@ Step1: Create new branch from VSC
 
 Step2: Make changes in the local files and save
 
+<<<<<<< HEAD
 Step3: Commit to local: Goto "Source Control" -> Commit.
 
 Step 4: Push to remote by running command from Terminal: git push -u origin new_branch
+=======
+Step3: 
+>>>>>>> f1b99fb0db86edf3fe7346cd90e503d9685b2762
