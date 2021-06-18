@@ -8,7 +8,7 @@ Step 2 - Add the Git Repository to VSC by running command below in VSC Terminal
     // It will show the origin as output.
 
 Step 3 - Push the local master into the Origin
-    git push -u origin master
+    git push -u origin main
 
 #### Timeline ####
 From VSC Terminal, run: git log
