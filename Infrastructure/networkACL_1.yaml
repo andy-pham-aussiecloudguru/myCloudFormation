@@ -2,7 +2,9 @@ Description: >
   This is the basic Network Access Control List (NetworkACL) template. 
   It will take the input values: VPCid, publicsubnets from vpc_1 template.
   There is 01 NetworkACL will be created: WebDMZ-ACL.
-  WebDMZ-ACL: will associate with 2 public subnets and define some allow/deny rules as example for traffic coming in and going out from/to Internet.
+  WebDMZ-ACL: will associate with 2 public subnets and define 2 ingress rules: 
+  1. allow SSH and http/https from internet (igress).
+  2. allow all traffic going out to the Internet (egress)
   
 Parameters:
   VpcStackName:
@@ -21,15 +23,23 @@ Resources:
       VpcId: !ImportValue 
         'Fn::Sub': '${VpcStackName}-sharedinf-vpcid'
 
-  PublicSubnetAclAssociation:
+  PublicSubnet1AclAssociation:
     Type: AWS::EC2::SubnetNetworkAclAssociation
     Properties:
       SubnetId: !ImportValue 
-        'Fn::Sub': '${VpcStackName}-sharedinf-publicsubnets'
+        'Fn::Sub': '${VpcStackName}-sharedinf-publicsubnet1'
       NetworkAclId:
         Ref: PublicNetworkAcl  
 
-  InboundRule:
+  PublicSubnet2AclAssociation:
+    Type: AWS::EC2::SubnetNetworkAclAssociation
+    Properties:
+      SubnetId: !ImportValue 
+        'Fn::Sub': '${VpcStackName}-sharedinf-publicsubnet2'
+      NetworkAclId:
+        Ref: PublicNetworkAcl  
+
+  InboundRule100:
     Type: AWS::EC2::NetworkAclEntry
     Properties:
         NetworkAclId:
@@ -41,6 +51,32 @@ Resources:
         PortRange:
           From: 22
           To: 22
+
+  InboundRule200:
+    Type: AWS::EC2::NetworkAclEntry
+    Properties:
+        NetworkAclId:
+          Ref: PublicNetworkAcl
+        RuleNumber: 200
+        Protocol: 6
+        RuleAction: allow
+        CidrBlock: 0.0.0.0/0
+        PortRange:
+          From: 80
+          To: 80
+  InboundRule300:
+    Type: AWS::EC2::NetworkAclEntry
+    Properties:
+        NetworkAclId:
+          Ref: PublicNetworkAcl
+        RuleNumber: 300
+        Protocol: 6
+        RuleAction: allow
+        CidrBlock: 0.0.0.0/0
+        PortRange:
+          From: 443
+          To: 443
+
   OutboundRule:
     Type: AWS::EC2::NetworkAclEntry
     Properties:
