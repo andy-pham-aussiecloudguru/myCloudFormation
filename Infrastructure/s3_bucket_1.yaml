@@ -1,0 +1,23 @@
+Description: >
+  This is the basic S3 bucket creation template. 
+  It will create a S3 bucket within the same region of CloudFormation template with public-read ACL.
+  S3 bucket name will be stackName + publics3bucket
+
+Resources:
+  PublicS3Bucket:
+    Type: 'AWS::S3::Bucket'
+    DeletionPolicy: Retain
+    Properties:
+      BucketName: !Sub ${AWS::StackName}-publics3bucket
+      AccessControl: PublicRead
+
+Outputs:
+  PublicS3Bucket:
+    Description: An ARN reference to the created public S3 bucket 
+    Value: !GetAtt PublicS3Bucket.Arn 
+    Export: # added to export
+      Name: 
+        !Join
+          - '-'
+          - - !Ref AWS::StackName
+            - 'sharedinf-publics3bucket'
