@@ -1,0 +1,36 @@
+# Use public Systems Manager Parameter
+Parameters:
+  LatestAmiId:
+    Type: 'AWS::SSM::Parameter::Value<AWS::EC2::Image::Id>'
+    Default: '/aws/service/ami-windows-latest/Windows_Server-2019-English-Full-Base'
+
+  KeyName :
+    Type : 'AWS::SSM::Parameter::Value<AWS::EC2::KeyPair::KeyName>'
+    Default: myEC2Key
+
+  EnvironmentSize:
+    Type: String
+    Default: SMALL
+    AllowedValues:
+      - SMALL
+      - MEDIUM
+      - LARGE
+    Description: Select Environment Size (S,M,L)
+
+Mappings:
+
+  InstanceSize:
+    SMALL:
+      "EC2" : "t2.micro"
+    MEDIUM:
+      "EC2" : "t2.small"
+    LARGE:
+      "EC2" : "t2.medium"
+
+Resources:
+ Instance:
+    Type: 'AWS::EC2::Instance'
+    Properties:
+      ImageId: !Ref LatestAmiId
+      InstanceType: !FindInMap [InstanceSize, !Ref EnvironmentSize, EC2]
+      KeyName : !Ref KeyName
