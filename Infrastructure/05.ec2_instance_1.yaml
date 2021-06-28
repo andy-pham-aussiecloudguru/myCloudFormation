@@ -1,0 +1,77 @@
+Description: >
+  This is the basic EC2 instance cfn template.
+  It will take the parameters below manually as input to create the EC2 instance:
+   - AMI id // Automatically selected based on the OS requirement in the input parameter.
+   - KeyPair Name // Retrieved from Parameter Store based on the input.
+   - Instance Type // Selected based on the pre-defined size of the environment.
+   - SecurityGroupID // Refer to security group stack output to get the input.
+   - SubnetID // Refer to vpc stack output to get the input. 
+
+Parameters:
+  LatestAmiId:
+    Type: 'AWS::SSM::Parameter::Value<AWS::EC2::Image::Id>'
+    Default: '/aws/service/ami-windows-latest/Windows_Server-2019-English-Full-Base'
+
+  KeyName :
+    Type : 'AWS::SSM::Parameter::Value<AWS::EC2::KeyPair::KeyName>'
+    Default: myEC2Key
+
+  EnvironmentSize:
+    Type: String
+    Default: SMALL
+    AllowedValues:
+      - SMALL
+      - MEDIUM
+      - LARGE
+    Description: Select Environment Size (S,M,L)
+
+  PublicIp:
+    Type: String
+    Default: Enable
+    AllowedValues:
+      - Enable
+      - Disable
+    Description: Choose Enable to provide public IP address for the instance, otherwise, choose Disable.
+
+  MySubnetID:  
+    Description: Please enter the subnetID this EC2 instance will be deployed into.
+    Type: String
+    Default: subnet-xxxx 
+
+  MySecurityGroupID:
+    Description: Please enter the SecurityGroupID created from security_group stack for the selected subnet.
+    Type: String
+    Default: sg-xxxx 
+
+Mappings:
+
+  InstanceSize:
+    SMALL:
+      "EC2" : "t2.micro"
+    MEDIUM:
+      "EC2" : "t2.small"
+    LARGE:
+      "EC2" : "t2.medium"
+  InternetAccess:
+    Enable:
+      "IPv4" : "true"
+    Disable:
+      "IPv4" : "false"  
+
+Resources:
+ Instance:
+    Type: 'AWS::EC2::Instance'
+    Properties:
+      ImageId: !Ref LatestAmiId
+      InstanceType: !FindInMap [InstanceSize, !Ref EnvironmentSize, EC2]
+      KeyName : !Ref KeyName
+      NetworkInterfaces: 
+        - AssociatePublicIpAddress: !FindInMap [InternetAccess, !Ref PublicIp, IPv4]
+          DeviceIndex: "0"
+          GroupSet: 
+            - Ref: "MySecurityGroupID"
+          SubnetId: 
+            Ref: "MySubnetID"
+      Tags:
+        - Key: Name
+          Value: !Sub ${AWS::StackName}     
