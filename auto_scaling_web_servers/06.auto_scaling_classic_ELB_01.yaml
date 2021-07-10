@@ -55,17 +55,17 @@ Resources:
 
 # Create lauchconfig with the WebDMZ securitygroup created from vpc template
 # EC2 instances are Amazon Linux2 with apache webserver installed under bootstrap script
-  LaunchConfig:
-    Type: 'AWS::AutoScaling::LaunchConfiguration'
+  LaunchTemplate:
+    Type: 'AWS::EC2::LaunchTemplate'
     Properties:
-        KeyName:
+        LaunchTemplateData:
+          KeyName:
             Ref: KeyName
-        ImageId: !Ref LatestAmiId
-        InstanceType: !FindInMap [InstanceSize, !Ref EnvironmentSize, EC2]
-        SecurityGroups: 
-          - !ImportValue 
-              'Fn::Sub': '${VpcStackName}-sharedinf-webdmzid'
-
+          ImageId: !Ref LatestAmiId
+          InstanceType: !FindInMap [InstanceSize, !Ref EnvironmentSize, EC2]
+          SecurityGroupIds: 
+            - !ImportValue 
+                'Fn::Sub': '${VpcStackName}-sharedinf-webdmzid'
 # Classic Elastic Load Balancer will be created
   ElasticLoadBalancer:
       Type: 'AWS::ElasticLoadBalancing::LoadBalancer'
@@ -88,13 +88,14 @@ Resources:
   WebServerGroup:
     Type: 'AWS::AutoScaling::AutoScalingGroup'
     Properties:       
-      VPCZoneIdentifier:
-        - !ImportValue 
-            'Fn::Sub': '${VpcStackName}-sharedinf-publicsubnets'
-      LaunchConfigurationName:
-        Ref: LaunchConfig
+      AutoScalingGroupName: !Sub ${AWS::StackName}-ServerGroup
+      VPCZoneIdentifier: !Ref Subnets
+      LaunchTemplate:
+        LaunchTemplateId: !Ref LaunchTemplate
+        Version: !GetAtt LaunchTemplate.LatestVersionNumber
       MinSize: '1'
       MaxSize: '3'
+      DesiredCapacity: '1'
       LoadBalancerNames: 
         - !Ref ElasticLoadBalancer
 
