@@ -36,3 +36,7 @@
         aws ssm get-parameters --names /aws/service/ami-amazon-linux-latest/amzn2-ami-hvm-x86_64-gp2 --region ap-southeast-2 \
             --query 'Parameters[0].[Value]' --output text    
 
+### AWS Specific parameter types:
+    https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/parameters-section-structure.html#aws-specific-parameter-types
+
+    
