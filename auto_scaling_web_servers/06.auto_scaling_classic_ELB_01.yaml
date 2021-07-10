@@ -1,0 +1,113 @@
+AWSTemplateFormatVersion: '2010-09-09'
+
+Description: 
+'AWS CloudFormation Sample Template AutoScaling with Classic Load Balancer: 
+Create a multi-az, load balanced and auto-scaled sample web site running on an Apache Web Server. 
+The application is configured to span all Availability Zones in the region and is auto-scaled based on the CPU utilization of the web servers. 
+The instances are load balanced with a simple health check against the default web page. 
+**WARNING** 
+This template creates one or more Amazon EC2 instances and an Classic Elastic Load Balancer. 
+You will be billed for the AWS resources used if you create a stack from this template.
+**END-WARNING**'
+
+Parameters:
+
+# VpcStackName created from 01.vpc_01.yaml. This value is used to retrieve output values from vpc template.
+  VpcStackName:
+    Description: Name of VPC stack. It must be match with the target VPC.
+    Type: String
+    Default: myVPC
+    ConstraintDescription: VPC name must match with the target VPC.
+
+  LatestAmiId:
+    Type: 'AWS::SSM::Parameter::Value<AWS::EC2::Image::Id>'
+    Default: '/aws/service/ami-amazon-linux-latest/amzn2-ami-hvm-x86_64-gp2'
+
+# This keyname/value will be retrieved from Parameter Store. This is to follow the security best practice
+  KeyName :
+    Type : 'AWS::SSM::Parameter::Value<AWS::EC2::KeyPair::KeyName>'
+    Default: myEC2Key
+
+  EnvironmentSize:
+    Type: String
+    Default: SMALL
+    AllowedValues:
+      - SMALL
+      - MEDIUM
+      - LARGE
+    Description: Select Environment Size (S,M,L)
+
+# List out all available subnets' Id in the region 
+  Subnets:
+    Description: Choose which subnets the Application Load Balancer should be deployed to
+    Type: List<AWS::EC2::Subnet::Id>
+
+Mappings:
+
+  InstanceSize:
+    SMALL:
+      "EC2" : "t2.micro"
+    MEDIUM:
+      "EC2" : "t2.small"
+    LARGE:
+      "EC2" : "t2.medium"
+
+Resources:
+
+# Create lauchconfig with the WebDMZ securitygroup created from vpc template
+# EC2 instances are Amazon Linux2 with apache webserver installed under bootstrap script
+  LaunchConfig:
+    Type: 'AWS::AutoScaling::LaunchConfiguration'
+    Properties:
+        KeyName:
+            Ref: KeyName
+        ImageId: !Ref LatestAmiId
+        InstanceType: !FindInMap [InstanceSize, !Ref EnvironmentSize, EC2]
+        SecurityGroups: 
+          - !ImportValue 
+              'Fn::Sub': '${VpcStackName}-sharedinf-webdmzid'
+
+# Classic Elastic Load Balancer will be created
+  ElasticLoadBalancer:
+      Type: 'AWS::ElasticLoadBalancing::LoadBalancer'
+      Properties:
+        Subnets: !Ref Subnets
+        CrossZone: true
+        Listeners:
+          - 
+            LoadBalancerPort: '80'
+            InstancePort: '80'
+            Protocol: HTTP
+        HealthCheck:
+          Target: 'HTTP:80/'
+          HealthyThreshold: '3'
+          UnhealthyThreshold: '5'
+          Interval: '30'
+          Timeout: '5'
+
+# Auto Scalling WebServers group will be created
+  WebServerGroup:
+    Type: 'AWS::AutoScaling::AutoScalingGroup'
+    Properties:       
+      VPCZoneIdentifier:
+        - !ImportValue 
+            'Fn::Sub': '${VpcStackName}-sharedinf-publicsubnets'
+      LaunchConfigurationName:
+        Ref: LaunchConfig
+      MinSize: '1'
+      MaxSize: '3'
+      LoadBalancerNames: 
+        - !Ref ElasticLoadBalancer
+
+# Scalling policy
+  myCPUPolicy:
+    Type: AWS::AutoScaling::ScalingPolicy
+    Properties:
+      AutoScalingGroupName: !Ref WebServerGroup
+      PolicyType: TargetTrackingScaling
+      TargetTrackingConfiguration:
+        PredefinedMetricSpecification:
+          PredefinedMetricType: ASGAverageCPUUtilization
+        TargetValue: 80       
+      EstimatedInstanceWarmup: 60        
+
