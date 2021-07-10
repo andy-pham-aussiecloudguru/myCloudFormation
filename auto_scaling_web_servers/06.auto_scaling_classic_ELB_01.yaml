@@ -1,14 +1,13 @@
 AWSTemplateFormatVersion: '2010-09-09'
 
-Description: 
-'AWS CloudFormation Sample Template AutoScaling with Classic Load Balancer: 
+Description: 'AWS CloudFormation Sample Template AutoScaling with Classic Load Balancer: 
 Create a multi-az, load balanced and auto-scaled sample web site running on an Apache Web Server. 
 The application is configured to span all Availability Zones in the region and is auto-scaled based on the CPU utilization of the web servers. 
 The instances are load balanced with a simple health check against the default web page. 
-**WARNING** 
+  **WARNING** 
 This template creates one or more Amazon EC2 instances and an Classic Elastic Load Balancer. 
 You will be billed for the AWS resources used if you create a stack from this template.
-**END-WARNING**'
+  **END-WARNING**'
 
 Parameters:
 
