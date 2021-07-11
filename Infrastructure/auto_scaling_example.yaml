@@ -472,7 +472,7 @@ Resources:
   LaunchConfig:
     Type: 'AWS::AutoScaling::LaunchConfiguration'
     Metadata:
-      Comment: Install a simple application
+      # Install a simple application
       'AWS::CloudFormation::Init':
         config:
           packages:

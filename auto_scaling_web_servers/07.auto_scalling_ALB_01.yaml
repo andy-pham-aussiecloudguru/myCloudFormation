@@ -1,0 +1,239 @@
+AWSTemplateFormatVersion: '2010-09-09'
+
+Description: 'AWS CloudFormation Sample Template AutoScaling with Application Load Balancer: 
+Create a multi-az, load balanced and auto-scaled sample web site running on an Apache Web Server. 
+The application is configured to span all Availability Zones by your choice in the region and is auto-scaled based on the CPU utilization of the web servers. 
+The instances are load balanced with a simple health check against the default web page. 
+  **WARNING** 
+This template creates one or more Amazon EC2 instances and an Application Load Balancer. 
+You will be billed for the AWS resources used if you create a stack from this template.
+  **END-WARNING**'
+
+Parameters:
+
+# VpcStackName created from 01.vpc_01.yaml. This value is used to retrieve output values from vpc template.
+  VpcStackName:
+    Description: Name of VPC stack. It must be match with the target VPC.
+    Type: String
+    Default: myVPC
+    ConstraintDescription: VPC name must match with the target VPC.
+
+  LatestAmiId:
+    Type: 'AWS::SSM::Parameter::Value<AWS::EC2::Image::Id>'
+    Default: '/aws/service/ami-amazon-linux-latest/amzn2-ami-hvm-x86_64-gp2'
+
+# This keyname/value will be retrieved from Parameter Store. This is to follow the security best practice
+  KeyName :
+    Type : 'AWS::SSM::Parameter::Value<AWS::EC2::KeyPair::KeyName>'
+    Default: myEC2Key
+
+  EnvironmentSize:
+    Type: String
+    Default: SMALL
+    AllowedValues:
+      - SMALL
+      - MEDIUM
+      - LARGE
+    Description: Select Environment Size (S,M,L)
+
+# List out all available subnets' Id in the region 
+  Subnets:
+    Description: Choose which subnets the Application Load Balancer should be deployed to
+    Type: List<AWS::EC2::Subnet::Id>
+
+Mappings:
+
+  InstanceSize:
+    SMALL:
+      "EC2" : "t2.micro"
+    MEDIUM:
+      "EC2" : "t2.small"
+    LARGE:
+      "EC2" : "t2.medium"
+
+Resources:
+
+  SSMIAMRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - ec2.amazonaws.com
+            Action:
+              - sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore
+
+  WebServerInstanceProfile:
+    Type: AWS::IAM::InstanceProfile
+    Properties:
+      Path: /
+      Roles:
+        - !Ref SSMIAMRole
+
+# Create lauchconfig with the WebDMZ securitygroup created from vpc template
+# EC2 instances are Amazon Linux2 with apache webserver installed under bootstrap script
+  LaunchConfig:
+    Type: 'AWS::AutoScaling::LaunchConfiguration'
+    Metadata:
+      AWS::CloudFormation::Init:
+        config:
+          packages:
+            yum:
+              httpd: []
+              php: []
+
+          files:
+            /var/www/html/index.php:
+              content: |
+                <!DOCTYPE html>
+                <html>
+                <body>
+                  <center>
+                    <?php
+                    # Get the instance ID from meta-data and store it in the $instance_id variable
+                    $url = "http://169.254.169.254/latest/meta-data/instance-id";
+                    $instance_id = file_get_contents($url);
+                    # Get the instance's availability zone from metadata and store it in the $zone variable
+                    $url = "http://169.254.169.254/latest/meta-data/placement/availability-zone";
+                    $zone = file_get_contents($url);
+                    # Get the instance AMI ID and store it in the $ami_id variable
+                    $url = "http://169.254.169.254/latest/meta-data/ami-id";
+                    $ami_id = file_get_contents($url);
+                    ?>
+                    <h2>EC2 Instance ID: <?php echo $instance_id ?></h2>
+                    <h2>Availability Zone: <?php echo $zone ?></h2>
+                    <h2>AMI ID: <?php echo $ami_id ?></h2>
+                  </center>
+                </body>
+                </html>
+              mode: 000644
+              owner: apache
+              group: apache
+
+            /etc/cfn/cfn-hup.conf:
+              content: !Sub |
+                [main]
+                stack=${AWS::StackId}
+                region=${AWS::Region}
+                interval=1
+              mode: 000400
+              owner: root
+              group: root
+
+            /etc/cfn/hooks.d/cfn-auto-reloader.conf:
+              content: !Sub |
+                [cfn-auto-reloader-hook]
+                triggers=post.update
+                path=Resources.WebServerInstance.Metadata.AWS::CloudFormation::Init
+                action=/opt/aws/bin/cfn-init --stack ${AWS::StackName} --resource WebServerGroup --region ${AWS::Region}
+                runas=root
+          services:
+            sysvinit:
+              httpd:
+                enabled: true
+                ensureRunning: true
+
+              cfn-hup:
+                enabled: true
+                ensureRunning: true
+                files:
+                  - /etc/cfn/cfn-hup.conf
+                  - /etc/cfn/hooks.d/cfn-auto-reloader.conf
+    Properties:
+        IamInstanceProfile: !Ref WebServerInstanceProfile
+        KeyName:
+            Ref: KeyName
+        ImageId: !Ref LatestAmiId
+        InstanceType: !FindInMap [InstanceSize, !Ref EnvironmentSize, EC2]
+        SecurityGroups: 
+          - !ImportValue 
+              'Fn::Sub': '${VpcStackName}-sharedinf-webdmzid'      
+        UserData:
+          Fn::Base64:
+            !Sub |
+            #!/bin/bash -xe
+            # Update aws-cfn-bootstrap to the latest
+            yum install -y aws-cfn-bootstrap
+            # Call cfn-init script to install files and packages
+            /opt/aws/bin/cfn-init -v --stack ${AWS::StackName} --resource LaunchConfig --region ${AWS::Region}
+            # Call cfn-signal script to send a signal with exit code
+            /opt/aws/bin/cfn-signal --exit-code $? --stack ${AWS::StackName} --resource WebServerGroup --region ${AWS::Region}
+    CreationPolicy:
+      ResourceSignal:
+        Count: 1
+        Timeout: PT10M
+# Application Load Balancer will be created
+  ApplicationLoadBalancer:
+      Type: 'AWS::ElasticLoadBalancingV2::LoadBalancer'
+      Properties:
+        Subnets: !Ref Subnets
+        SecurityGroups: 
+          - !ImportValue 
+              'Fn::Sub': '${VpcStackName}-sharedinf-webdmzid' 
+        Tags:
+          - Key: Name
+            Value: !Sub ${AWS::StackName}-ALB
+
+# Application Listener
+  LoadBalancerListener:
+    Type: AWS::ElasticLoadBalancingV2::Listener
+    Properties:
+      LoadBalancerArn: !Ref ApplicationLoadBalancer
+      Port: 80
+      Protocol: HTTP
+      DefaultActions:
+        - Type: forward
+          TargetGroupArn: !Ref DefaultTargetGroup
+
+# We define a default target group here, as this is a mandatory Parameters
+# when creating an Application Load Balancer Listener. This is not used, instead
+# a target group is created per-service in each service template (../services/*)
+  DefaultTargetGroup:
+    Type: AWS::ElasticLoadBalancingV2::TargetGroup
+    Properties:
+      Name: !Sub ${AWS::StackName}-default
+      VpcId: !ImportValue 
+              'Fn::Sub': '${VpcStackName}-sharedinf-vpcid'  
+      Port: 80
+      Protocol: HTTP
+
+# Auto Scalling WebServers group will be created
+  WebServerGroup:
+    Type: 'AWS::AutoScaling::AutoScalingGroup'
+    Properties:       
+      VPCZoneIdentifier: !Ref Subnets
+      LaunchConfigurationName:
+        Ref: LaunchConfig
+      MinSize: '2'
+      MaxSize: '3'
+      TargetGroupARNs: 
+        - !Ref DefaultTargetGroup
+
+# Scalling policy
+  myCPUPolicy:
+    Type: AWS::AutoScaling::ScalingPolicy
+    Properties:
+      AutoScalingGroupName: !Ref WebServerGroup
+      PolicyType: TargetTrackingScaling
+      TargetTrackingConfiguration:
+        PredefinedMetricSpecification:
+          PredefinedMetricType: ASGAverageCPUUtilization
+        TargetValue: 80       
+      EstimatedInstanceWarmup: 60                  
+
+Outputs:
+  LoadBalancer:
+    Description: A reference to the Application Load Balancer
+    Value: !Ref ApplicationLoadBalancer
+
+  LoadBalancerUrl:
+    Description: The URL of the ALB
+    Value: !GetAtt ApplicationLoadBalancer.DNSName
+
+  Listener:
+    Description: A reference to a port 80 listener
+    Value: !Ref LoadBalancerListener      
