@@ -1,0 +1,349 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: >-
+  CloudFormation template with a custom restore to invoke a point in time restore lambda function.
+Metadata:
+  AWS::CloudFormation::Interface:
+    ParameterGroups:
+    - Label:
+        default: Instance Settings
+      Parameters:
+        - pSourceDBInstanceIdentifier
+        - pRenameExistingDBInstance
+        - pRenamedDBInstanceIdentifier
+        - pTargetDBInstanceIdentifier
+        - pdbsubnetgroupname
+    - Label:
+        default: Lambda function configuration
+      Parameters:
+        - pPointInTimeRestoreLambdaExportName
+    - Label:
+        default: Restore Time, Point in time to restore from
+      Parameters:
+        - pYear
+        - pMonth
+        - pDay
+        - pHour
+        - pMinute
+        - pSecond
+    ParameterLabels:
+      pPointInTimeRestoreLambdaExportName:
+        default: What is the cloudformation Export Name of your point in time restore lambda function?
+      pSourceDBInstanceIdentifier:
+        default: Source DB instance Identifier
+      pRenamedDBInstanceIdentifier:
+        default: What is the new name you want to give for the existing RDS instance?
+      pRenameExistingDBInstance:
+        default: Do you want to rename the source instance before the restore?
+      pTargetDBInstanceIdentifier:
+        default: What is the target DB instance name? leave blank if rename DB instance is set to yes.
+      pdbsubnetgroupname:
+        default: Target DB dbsubnetgroupname
+
+      pYear:
+        default: Year
+      pMonth:
+        default: Month
+      pDay:
+        default: Day
+      pHour:
+        default: Hour
+      pMinute:
+        default: Minute
+      pSecond:
+        default: Second
+
+Conditions:
+  cRenameDBInstance: !Equals
+    - !Ref pRenameExistingDBInstance
+    - 'yes'
+Parameters:
+  pPointInTimeRestoreLambdaExportName:
+    Type: String
+    Description: >-
+      The output export name of your lambda function, this will be used to automatically reference the point in time restore
+      lambda function ARN. please check the output section of your point in time lambda CFN template.
+    Default: rds-epointimerestorelambda-arn
+  pSourceDBInstanceIdentifier:
+    Type: String
+    Description: The identifier of the source DB instance from which to restore.
+    ConstraintDescription: Must match the identifier of an existing DB instance.
+  pRenamedDBInstanceIdentifier:
+    Type: String
+    Description: The new name for the existing RDS instance.
+    ConstraintDescription: Must contain from 1 to 63 letters, numbers, or hyphens.
+      First character must be a letter Cannot end with a hyphen or contain two consecutive
+      hyphens.
+  pTargetDBInstanceIdentifier:
+    Type: String
+    Description: >-
+        The target DB instance name.
+    ConstraintDescription: Must contain from 1 to 63 letters, numbers, or hyphens.
+      First character must be a letter Cannot end with a hyphen or contain two consecutive
+      hyphens.
+  pRenameExistingDBInstance:
+    Type: String
+    Description: >-
+      Whether or not to rename the source instance.
+      Select yes to rename the DB instance, if selected the TargetDBInstanceIdentifier will be ignored, if you don't wish to rename select no.
+    ConstraintDescription: >-
+      Select yes to rename the DB instance, if selected the TargetDBInstanceIdentifier will be ignored.
+    AllowedValues:
+      - 'yes'
+      - 'no'
+    Default: 'no'
+  pdbsubnetgroupname:
+    Type: String
+    Description: The dbsubnetgroupname of the new DB instance to be created.
+    ConstraintDescription: Must match the dbsubnetgroupname of an existing DB instance.
+
+  pYear:
+    Type: Number
+    AllowedValues:
+      - 2018
+      - 2019
+      - 2020
+      - 2021
+      - 2022
+    Default: 2018
+  pMonth:
+    Type: Number
+    AllowedValues:
+      - 1
+      - 2
+      - 3
+      - 4
+      - 5
+      - 6
+      - 7
+      - 8
+      - 9
+      - 10
+      - 11
+      - 12
+    Default: 1
+  pDay:
+    Type: Number
+    AllowedValues:
+      - 1
+      - 2
+      - 3
+      - 4
+      - 5
+      - 6
+      - 7
+      - 8
+      - 9
+      - 10
+      - 11
+      - 12
+      - 13
+      - 14
+      - 15
+      - 16
+      - 17
+      - 18
+      - 19
+      - 20
+      - 21
+      - 22
+      - 23
+      - 24
+      - 25
+      - 26
+      - 27
+      - 28
+      - 29
+      - 30
+      - 31
+    Default: 1
+  pHour:
+    Type: Number
+    AllowedValues:
+      - 0
+      - 1
+      - 2
+      - 3
+      - 4
+      - 5
+      - 6
+      - 7
+      - 8
+      - 9
+      - 10
+      - 11
+      - 12
+      - 13
+      - 14
+      - 15
+      - 16
+      - 17
+      - 18
+      - 19
+      - 20
+      - 21
+      - 22
+      - 23
+    Default: 0
+  pMinute:
+    Type: Number
+    AllowedValues:
+      - 0
+      - 1
+      - 2
+      - 3
+      - 4
+      - 5
+      - 6
+      - 7
+      - 8
+      - 9
+      - 10
+      - 11
+      - 12
+      - 13
+      - 14
+      - 15
+      - 16
+      - 17
+      - 18
+      - 19
+      - 20
+      - 21
+      - 22
+      - 23
+      - 24
+      - 25
+      - 26
+      - 27
+      - 28
+      - 29
+      - 30
+      - 31
+      - 32
+      - 33
+      - 34
+      - 35
+      - 36
+      - 37
+      - 38
+      - 39
+      - 40
+      - 41
+      - 42
+      - 43
+      - 44
+      - 45
+      - 46
+      - 47
+      - 48
+      - 49
+      - 50
+      - 51
+      - 52
+      - 53
+      - 54
+      - 55
+      - 56
+      - 57
+      - 58
+      - 59
+    Default: 0
+  pSecond:
+    Type: Number
+    AllowedValues:
+      - 0
+      - 1
+      - 2
+      - 3
+      - 4
+      - 5
+      - 6
+      - 7
+      - 8
+      - 9
+      - 10
+      - 11
+      - 12
+      - 13
+      - 14
+      - 15
+      - 16
+      - 17
+      - 18
+      - 19
+      - 20
+      - 21
+      - 22
+      - 23
+      - 24
+      - 25
+      - 26
+      - 27
+      - 28
+      - 29
+      - 30
+      - 31
+      - 32
+      - 33
+      - 34
+      - 35
+      - 36
+      - 37
+      - 38
+      - 39
+      - 40
+      - 41
+      - 42
+      - 43
+      - 44
+      - 45
+      - 46
+      - 47
+      - 48
+      - 49
+      - 50
+      - 51
+      - 52
+      - 53
+      - 54
+      - 55
+      - 56
+      - 57
+      - 58
+      - 59
+    Default: 0
+
+Resources:
+
+  rPointInTimeRestoreLambdaFunctionCustomResoure:
+    Type: AWS::CloudFormation::CustomResource
+    Properties:
+      ServiceToken:
+        Fn::ImportValue:
+          !Ref pPointInTimeRestoreLambdaExportName
+      SourceDBInstanceIdentifier:
+        Ref: pSourceDBInstanceIdentifier
+      TargetDBInstanceIdentifier:
+        Fn::If:
+          - cRenameDBInstance
+          - !Ref pSourceDBInstanceIdentifier
+          - !Ref pTargetDBInstanceIdentifier
+      RenamedDBInstanceIdentifier:
+        Fn::If:
+          - cRenameDBInstance
+          - !Ref pRenamedDBInstanceIdentifier
+          - 'DoNotRename'
+      dbsubnetgroupname:
+        Ref: pdbsubnetgroupname
+      Year:
+        Ref: pYear
+      Month:
+        Ref: pMonth
+      Day:
+        Ref: pDay
+      Hour:
+        Ref: pHour
+      Minute:
+        Ref: pMinute
+      Second:
+        Ref: pSecond
