@@ -4,27 +4,27 @@ Description: >-
 Metadata:
   AWS::CloudFormation::Interface:
     ParameterGroups:
-    - Label:
-        default: Instance Settings
-      Parameters:
-        - pSourceDBInstanceIdentifier
-        - pRenameExistingDBInstance
-        - pRenamedDBInstanceIdentifier
-        - pTargetDBInstanceIdentifier
-        - pdbsubnetgroupname
-    - Label:
-        default: Lambda function configuration
-      Parameters:
-        - pPointInTimeRestoreLambdaExportName
-    - Label:
-        default: Restore Time, Point in time to restore from
-      Parameters:
-        - pYear
-        - pMonth
-        - pDay
-        - pHour
-        - pMinute
-        - pSecond
+      - Label:
+          default: Instance Settings
+        Parameters:
+          - pSourceDBInstanceIdentifier
+          - pRenameExistingDBInstance
+          - pRenamedDBInstanceIdentifier
+          - pTargetDBInstanceIdentifier
+          - pdbsubnetgroupname
+      - Label:
+          default: Lambda function configuration
+        Parameters:
+          - pPointInTimeRestoreLambdaExportName
+      - Label:
+          default: Restore Time, Point in time to restore from
+        Parameters:
+          - pYear
+          - pMonth
+          - pDay
+          - pHour
+          - pMinute
+          - pSecond
     ParameterLabels:
       pPointInTimeRestoreLambdaExportName:
         default: What is the cloudformation Export Name of your point in time restore lambda function?
