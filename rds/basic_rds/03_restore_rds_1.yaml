@@ -1,0 +1,79 @@
+Description: >
+  This is the basic restore RDS instance cfn template.
+  It will take the parameters below manually as input to create the RDS instance:
+   - Instance size depending on environment: SMALL, MEDIUM or LARGE.
+   - SnapToRestore: snapshotID to restore from.
+   - DatabaseSecurityGroup: Refer to security group stack output to get the input.
+   - DatabaseInstanceIdentifier
+   - DatabaseSubnetGroupName: select existing Subnetgroup name.
+   
+Metadata:
+  AWS::CloudFormation::Interface:
+    ParameterGroups:
+      - Label:
+          default: Deploymental Environment
+        Parameters:
+          - EnvironmentSize
+      - Label:
+          default: RDS General Settings
+        Parameters:
+          - SnapToRestore
+          - DatabaseInstanceIdentifier
+      - Label:
+          default: Network setting
+        Parameters:
+          - DatabaseSubnetGroupName
+          - DatabaseSecurityGroups
+
+    ParameterLabels:
+      EnvironmentSize:
+        default: Select the size of the environment.
+      SnapToRestore:
+        default: Snap id to restore RDS
+      DatabaseSubnetGroupName:
+        default: Provide name of the Database subnet group.
+      DatabaseInstanceIdentifier:
+        default: Name your database identifier.  
+
+Parameters:
+  SnapToRestore:
+    Type: String
+    Default: ""
+  EnvironmentSize:
+    Type: String
+    Default: SMALL
+    AllowedValues:
+      - SMALL
+      - MEDIUM
+      - LARGE
+    Description: Select Environment Size (S,M,L)
+  DatabaseSubnetGroupName:
+    Type: String
+    Default: ""
+  DatabaseSecurityGroups:
+    Type: List<AWS::EC2::SecurityGroup::Id>  
+  DatabaseInstanceIdentifier:
+    Type: String
+    Default: ""
+Mappings:
+  InstanceSize:
+    SMALL:
+      "DB" : "db.t2.micro"
+    MEDIUM:
+      "DB" : "db.t2.small"
+    LARGE:
+      "DB" : "db.r3.xlarge"    
+
+Resources:
+  DB:
+    Type: AWS::RDS::DBInstance
+    DeletionPolicy: Snapshot
+    Properties:
+      AllocatedStorage: "20"
+      DBInstanceClass: !FindInMap [InstanceSize, !Ref EnvironmentSize, DB] # Dynamic mapping + Pseudo Parameter
+      DBSnapshotIdentifier: !Ref SnapToRestore
+      Engine: MySQL
+      StorageType: gp2
+      DBSubnetGroupName: !Ref DatabaseSubnetGroupName
+      VPCSecurityGroups: !Ref DatabaseSecurityGroups
+      DBInstanceIdentifier: !Ref DatabaseInstanceIdentifier
