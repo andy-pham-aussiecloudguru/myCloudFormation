@@ -1,0 +1,30 @@
+Description: >
+  This cfn template is used to create a rds subnet group.
+  It will take the parameters below manually as input to create the subnet group:
+   - SubnetIDs: IDs of the subnets belonging to the subnet group
+   - SubnetGroupDescription
+   - SubnetGroupName: Name of the database subnet group 
+
+Parameters:
+  SubnetGroupName:
+    Type: String
+    Default: ""
+    Description: Name of the new DatabaseSubnetGroup
+  SubnetGroupDescription:
+    Type: String
+    Default: ""
+    Description: Describe Database Subnet Group
+  SubnetIds:
+    Type: 'List<AWS::EC2::Subnet::Id>'
+    Description: The list of SubnetIds in your Virtual Private Cloud (VPC) to for the new Database Subnet Group 
+
+Resources:
+  DBSubnetGroup:
+    Type: AWS::RDS::DBSubnetGroup
+    Properties:
+      DBSubnetGroupDescription: !Ref SubnetGroupDescription
+      DBSubnetGroupName: !Ref SubnetGroupName
+      SubnetIds: !Ref SubnetIds
+      Tags:
+        - Key: Name
+          Value: !Sub ${AWS::StackName}-subnetgroup  
