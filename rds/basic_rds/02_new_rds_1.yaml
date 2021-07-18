@@ -1,0 +1,105 @@
+Description: >
+  This is the basic RDS instance cfn template.
+  It will take the parameters below manually as input to create the new RDS instance:
+   - Instance size depending on environment: SMALL, MEDIUM or LARGE.
+   - Specify DatabaseInstanceIdentifier, DatabaseName, Database Username and Database Password.
+   - SecurityGroupID // Refer to security group stack output to get the input.
+
+Metadata:
+  AWS::CloudFormation::Interface:
+    ParameterGroups:
+      - Label:
+          default: Deploymental Environment
+        Parameters:
+          - EnvironmentSize
+      - Label:
+          default: Network Settings
+        Parameters:
+          - DatabaseSubnetGroupName
+          - DatabaseSecurityGroups
+      - Label: 
+          default: RDS Database Settings
+        Parameters:
+          - DatabaseInstanceIdentifier
+          - DatabaseName
+          - DatabaseUser
+          - DatabasePassword  
+
+    ParameterLabels:
+      EnvironmentSize:
+        default: Select the size of the environment.
+      DatabaseSubnetGroupName:
+        default: Provide name of the existing Database subnet group.
+      DatabaseSecurityGroups:
+        default: Select Security Groups to deploy RDS into.  
+      DatabaseName:
+        default: Name of the new database. AllowedPattern-"[a-zA-Z][a-zA-Z0-9]*". 
+      DatabaseUser:
+        default: User name of the new database. AllowedPattern-"[a-zA-Z][a-zA-Z0-9]*".
+      DatabasePassword:
+        default: Password of the new database. AllowedPattern-"[a-zA-Z0-9]*".  
+      DatabaseInstanceIdentifier:
+        default: Name of the InstanceIdentifier    
+
+Parameters:
+  EnvironmentSize:
+    Type: String
+    Default: SMALL
+    AllowedValues:
+      - SMALL
+      - MEDIUM
+      - LARGE
+    Description: Select Environment Size (S,M,L)
+  DatabaseSubnetGroupName:
+    Type: String
+    Default: ""
+  DatabaseName:
+    Type: String
+    Default: wordpress
+    MinLength: 1
+    MaxLength: 64
+    AllowedPattern: "[a-zA-Z][a-zA-Z0-9]*" # start with a letter, only alphanumeric characters - new for this lesson
+  DatabaseUser:
+    Type: String
+    MinLength: 1
+    MaxLength: 16
+    Default: wordpress
+    AllowedPattern: "[a-zA-Z][a-zA-Z0-9]*" # start with a letter, only alphanumeric characters - new for this lesson
+  DatabasePassword:
+    Type: String
+    MinLength: 8
+    MaxLength: 41
+    Default: w0rdpr355
+    NoEcho: true
+    AllowedPattern: "[a-zA-Z0-9]*" # Must only contain alphanumeric characters - new for this lesson
+  DatabaseInstanceIdentifier:
+    Type: String
+    Default: ""  
+  DatabaseSecurityGroups:
+    Type: List<AWS::EC2::SecurityGroup::Id>  
+
+Mappings:
+  InstanceSize:
+    SMALL:
+      "DB" : "db.t2.micro"
+    MEDIUM:
+      "DB" : "db.t2.small"
+    LARGE:
+      "DB" : "db.r3.xlarge"    
+
+Resources:
+
+  DB:
+    Type: AWS::RDS::DBInstance
+    DeletionPolicy: Snapshot
+    Properties:
+      AllocatedStorage: "20"
+      DBInstanceClass: !FindInMap [InstanceSize, !Ref EnvironmentSize, DB] # Dynamic mapping + Pseudo Parameter
+      DBName: !Ref DatabaseName
+      Engine: MySQL
+      StorageType: gp2
+      DBSubnetGroupName: !Ref DatabaseSubnetGroupName
+      MasterUsername: !Ref DatabaseUser
+      MasterUserPassword: !Ref DatabasePassword  
+      VPCSecurityGroups: !Ref DatabaseSecurityGroups
+      DBInstanceIdentifier: !Ref DatabaseInstanceIdentifier
