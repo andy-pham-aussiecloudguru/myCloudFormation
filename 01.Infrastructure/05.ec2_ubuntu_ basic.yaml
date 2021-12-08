@@ -1,0 +1,114 @@
+AWSTemplateFormatVersion: '2010-09-09'
+
+Description: >
+  This is the basic EC2 instance cfn template.
+  It will take the parameters below manually as input to create the EC2 instance:
+   - AMI id // Automatically selected based on the OS requirement in the input parameter.
+   - KeyPair Name // Retrieved from Parameter Store based on the input.
+   - Instance Type // Selected based on the pre-defined size of the environment.
+   - SecurityGroupID // Refer to security group stack output to get the input.
+   - SubnetID // Refer to vpc stack output to get the input. 
+
+Metadata:
+  AWS::CloudFormation::Interface:
+    ParameterGroups:
+      - Label:
+          default: 'Amazon EC2 Configuration'
+        Parameters:
+          - AmiID
+
+    ParameterLabels:
+      AmiID:
+        default: 'Amazon Machine Image ID'
+
+Parameters:
+  EnvironmentType:
+    Description: 'Specify the Environment type of the stack.'
+    Type: String
+    Default: Test
+    AllowedValues:
+      - Dev
+      - Test
+      - Prod
+    ConstraintDescription: 'Specify either Dev, Test or Prod.'
+
+  AmiID:
+    Type: AWS::SSM::Parameter::Value<AWS::EC2::Image::Id>
+    Description: 'The ID of the AMI.'
+    Default: /aws/service/canonical/ubuntu/server/20.04/stable/current/amd64/hvm/ebs-gp2/ami-id
+
+  MySubnetID:  
+    Description: Please enter the subnetID this EC2 instance will be deployed into.
+    Type: AWS::EC2::Subnet::Id
+
+  # VpcStackName created from 01.vpc_01.yaml. This value is used to retrieve output values from vpc template.
+  VpcStackName:
+    Description: Name of VPC stack. It must be match with the target VPC.
+    Type: String
+    Default: myVPC
+    ConstraintDescription: VPC name must match with the target VPC.
+  # Select if public IP address will be assigned to EC2
+  PublicIp:
+    Type: String
+    Default: Enable
+    AllowedValues:
+      - Enable
+      - Disable
+  KeyName :
+    Type : 'AWS::SSM::Parameter::Value<AWS::EC2::KeyPair::KeyName>'
+    Default: myEC2Key
+
+Mappings:
+  EnvironmentToInstanceType:
+    Dev:
+      InstanceType: t2.micro
+    Test:
+      InstanceType: t2.micro
+    Prod:
+      InstanceType: t2.small
+  InternetAccess:
+    Enable:
+      "IPv4" : "true"
+    Disable:
+      "IPv4" : "false" 
+
+Resources:
+  SSMIAMRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - ec2.amazonaws.com
+            Action:
+              - sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore
+
+  WebServerInstanceProfile:
+    Type: AWS::IAM::InstanceProfile
+    Properties:
+      Path: /
+      Roles:
+        - !Ref SSMIAMRole
+
+  WebServerInstance:
+    Type: AWS::EC2::Instance
+    
+    Properties:
+      IamInstanceProfile: !Ref WebServerInstanceProfile
+      ImageId: !Ref AmiID
+      InstanceType: !FindInMap [EnvironmentToInstanceType, !Ref EnvironmentType, InstanceType]
+      KeyName: !Ref KeyName 
+      NetworkInterfaces: 
+        - AssociatePublicIpAddress: !FindInMap [InternetAccess, !Ref PublicIp, IPv4]
+          DeviceIndex: "0"
+          GroupSet: 
+            - !ImportValue 
+               'Fn::Sub': '${VpcStackName}-sharedinf-webdmzid'        
+          SubnetId: !Ref MySubnetID
+      Tags:
+        - Key: Name
+          Value: !Join [ '-', [ !Ref EnvironmentType, webserver ] ]
