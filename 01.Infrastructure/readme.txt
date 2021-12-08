@@ -15,7 +15,7 @@
 
         Examples: 
             aws ssm get-parameters --names \
-                    /aws/service/canonical/ubuntu/server/18.04/stable/current/amd64/hvm/ebs-gp2/ami-id \
+                    /aws/service/canonical/ubuntu/server/20.04/stable/current/amd64/hvm/ebs-gp2/ami-id \
                 --query 'Parameters[0].[Value]' --output text
 
 ### Finding Windows Images with the AWS SSM Parameter Store ###
